@@ -8,17 +8,6 @@ import pandas as pd
 query = "пальто из натуральной шерсти"
 url = "https://search.wb.ru/exactmatch/ru/common/v18/search"
 
-params = {
-    "appType": 1,
-    "curr": "rub",
-    "dest": -1257786,
-    "lang": "ru",
-    "page": 1,
-    "query": query,
-    "resultset": "catalog",
-    "sort": "popular",
-    "spp": 30,
-}
 
 headers = {
     "Accept": "application/json, text/plain, */*",
@@ -32,6 +21,18 @@ page = 1
 ids_set = set()
 
 while True:
+    params = {
+        "appType": 1,
+        "curr": "rub",
+        "dest": -1257786,
+        "lang": "ru",
+        "page": page,
+        "query": query,
+        "resultset": "catalog",
+        "sort": "popular",
+        "spp": 30,
+    }
+
     response = None
 
     for attempt in range(1, 7):
@@ -56,7 +57,6 @@ while True:
     else:
         raise Exception(response.text[:1000])
 
-
     data = response.json()
 
     products = data.get("data", {}).get("products") or data.get("products", [])
@@ -69,10 +69,11 @@ while True:
 
     new_for_page = 0
 
-    for p in enumerate(products, 1):
+    for p in products:
         product_id = p.get("id")
         if not product_id or product_id in ids_set:
             continue
+        
         ids_set.add(product_id)
         new_for_page += 1
 
@@ -88,7 +89,6 @@ while True:
             if raw_price is not None:
                 price = raw_price / 100
 
-        
         product_url = (
             f"https://www.wildberries.ru/catalog/{product_id}/detail.aspx"
             if product_id
@@ -105,7 +105,7 @@ while True:
                 "product_url": product_url,
             }
         )
-    
+
     print(f"Page #{page} done, {new_for_page} new products")
     page += 1
     time.sleep(1)
