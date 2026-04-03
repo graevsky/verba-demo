@@ -66,7 +66,6 @@ while True:
         print(f"page {page}, no products, stopping")
         break
 
-
     new_for_page = 0
 
     for p in products:
@@ -110,7 +109,7 @@ while True:
     print(f"Page #{page} done, {new_for_page} new products")
     print("Total products:", product_counter)
 
-    if new_for_page == 0: # might delete later
+    if new_for_page == 0:  # might delete later
         print("no newp roducs")
         break
     page += 1
