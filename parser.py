@@ -19,6 +19,7 @@ headers = {
 rows = []
 page = 1
 ids_set = set()
+product_counter = 0
 
 while True:
     params = {
@@ -65,7 +66,6 @@ while True:
         print(f"page {page}, no products, stopping")
         break
 
-    print(f"Page #{page}, {len(products)} products")
 
     new_for_page = 0
 
@@ -73,9 +73,10 @@ while True:
         product_id = p.get("id")
         if not product_id or product_id in ids_set:
             continue
-        
+
         ids_set.add(product_id)
         new_for_page += 1
+        product_counter += 1
 
         price = None
         sizes = p.get("sizes") or []
@@ -107,6 +108,11 @@ while True:
         )
 
     print(f"Page #{page} done, {new_for_page} new products")
+    print("Total products:", product_counter)
+
+    if new_for_page == 0: # might delete later
+        print("no newp roducs")
+        break
     page += 1
     time.sleep(1)
 
