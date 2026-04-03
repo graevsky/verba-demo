@@ -27,66 +27,88 @@ headers = {
     "Referer": f"https://www.wildberries.ru/catalog/0/search.aspx?search={quote(query)}",
 }
 
-response = None
+rows = []
+page = 1
+ids_set = set()
 
-for attempt in range(1, 7):
-    response = requests.get(
-        url,
-        params=params,
-        headers=headers,
-        impersonate="chrome",
-        timeout=30,
-    )
+while True:
+    response = None
 
-    if response.status_code == 200:
+    for attempt in range(1, 7):
+        response = requests.get(
+            url,
+            params=params,
+            headers=headers,
+            impersonate="chrome",
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            break
+
+        if response.status_code == 429:
+            wait = attempt * 3
+            print(f"{attempt}/6 wait {wait}s")
+            time.sleep(wait)
+            continue
+
+        raise Exception(f"HTTP {response.status_code}\n{response.text[:1000]}")
+    else:
+        raise Exception(response.text[:1000])
+
+
+    data = response.json()
+
+    products = data.get("data", {}).get("products") or data.get("products", [])
+
+    if not products:
+        print(f"page {page}, no products, stopping")
         break
 
-    if response.status_code == 429:
-        wait = attempt * 3
-        print(f"{attempt}/5 wait {wait}s")
-        time.sleep(wait)
-        continue
+    print(f"Page #{page}, {len(products)} products")
 
-    raise Exception(f"HTTP {response.status_code}\n{response.text[:1000]}")
-else:
-    raise Exception(response.text[:1000])
+    new_for_page = 0
 
+    for p in enumerate(products, 1):
+        product_id = p.get("id")
+        if not product_id or product_id in ids_set:
+            continue
+        ids_set.add(product_id)
+        new_for_page += 1
 
-data = response.json()
+        price = None
+        sizes = p.get("sizes") or []
+        if sizes:
+            price_info = sizes[0].get("price", {})
+            raw_price = (
+                price_info.get("product")
+                or price_info.get("total")
+                or price_info.get("basic")
+            )
+            if raw_price is not None:
+                price = raw_price / 100
 
-products = data.get("data", {}).get("products") or data.get("products", [])
-rows = []
-
-for i, p in enumerate(products, 1):
-    price = None
-    sizes = p.get("sizes") or []
-    if sizes:
-        price_info = sizes[0].get("price", {})
-        raw_price = (
-            price_info.get("product")
-            or price_info.get("total")
-            or price_info.get("basic")
+        
+        product_url = (
+            f"https://www.wildberries.ru/catalog/{product_id}/detail.aspx"
+            if product_id
+            else None
         )
-        if raw_price is not None:
-            price = raw_price / 100
 
-    product_id = p.get("id")
-    product_url = (
-        f"https://www.wildberries.ru/catalog/{product_id}/detail.aspx"
-        if product_id
-        else None
-    )
-
-    rows.append(
-        {
-            "id": product_id,
-            "name": p.get("name"),
-            "brand": p.get("brand"),
-            "supplier": p.get("supplier"),
-            "price": price,
-            "product_url": product_url,
-        }
-    )
+        rows.append(
+            {
+                "id": product_id,
+                "name": p.get("name"),
+                "brand": p.get("brand"),
+                "supplier": p.get("supplier"),
+                "price": price,
+                "product_url": product_url,
+            }
+        )
+    
+    print(f"Page #{page} done, {new_for_page} new products")
+    page += 1
+    time.sleep(1)
 
 df = pd.DataFrame(rows)
 df.to_excel("product_list.xlsx", index=False)
